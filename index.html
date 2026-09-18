@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My To-Do List</title>
+  <style>
+    /* ---------- COLORS (change these to restyle the app) ---------- */
+    :root {
+      --bg: #f5f4f0;
+      --card: #ffffff;
+      --text: #1f1f1f;
+      --muted: #8a8a85;
+      --accent: #2f6fed;
+      --border: #e4e2dc;
+      --danger: #d64545;
+      --success: #2e8b57;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #161616;
+        --card: #222222;
+        --text: #f0f0f0;
+        --muted: #8f8f8f;
+        --accent: #6b9bff;
+        --border: #333333;
+        --success: #5cc98a;
+      }
+    }
+
+    /* ---------- LAYOUT ---------- */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 32px 16px;
+      min-height: 100vh;
+    }
+    .app {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      height: fit-content;
+    }
+    .app.wide { max-width: 980px; }   /* calendar view gets more room */
+    h1 { margin: 0 0 4px; font-size: 28px; }
+    .subtitle { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+    [hidden] { display: none !important; }
+
+    /* ---------- VIEW SWITCHER (Tasks / Calendar) ---------- */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      margin-bottom: 20px;
+      background: var(--bg);
+      border-radius: 12px;
+      max-width: 432px;
+    }
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .tabs button.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+    /* ---------- ADD-TASK FORM ---------- */
+    form { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    form input[type="text"] { flex: 1 1 100%; }
+    /* The tappable "Due date" field */
+    .due-field {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 12px;
+      font-size: 15px;
+      font-family: inherit;
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .due-field.has-date { color: var(--text); font-weight: 600; }
+    .due-field svg { flex-shrink: 0; }
+
+    /* ---------- DATE PICKER POP-UP ---------- */
+    dialog.picker {
+      width: min(340px, calc(100vw - 32px));
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    }
+    .picker-inner { padding: 20px; }
+    dialog.picker::backdrop { background: rgba(0,0,0,.4); }
+    .picker-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .picker-head strong { font-size: 17px; }
+    .picker-head button, .picker-close {
+      width: 34px; height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text);
+      font-size: 17px;
+      cursor: pointer;
+    }
+    .picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .picker-grid .weekday { font-size: 12px; padding-bottom: 4px; }
+    .picker-day {
+      aspect-ratio: 1;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .picker-day:hover { background: var(--bg); }
+    .picker-day.past { color: var(--muted); }
+    .picker-day.is-today { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .picker-day.chosen { background: var(--accent); color: white; font-weight: 700; }
+    .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 16px; }
+    .quick button {
+      padding: 9px 6px;
+      font-size: 14px;
+      font-family: inherit;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .quick button:hover { border-color: var(--accent); }
+    .quick .clear { color: var(--danger); }
+    input[type="text"] {
+      padding: 12px 14px;
+      font-size: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    button.add {
+      padding: 0 18px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+    }
+
+    /* ---------- FILTER BUTTONS ---------- */
+    .filters { display: flex; gap: 6px; margin-bottom: 12px; }
+    .filters button {
+      flex: 1;
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .filters button.active { background: var(--text); color: var(--card); border-color: var(--text); }
+
+    /* ---------- TASK LIST ---------- */
+    ul { list-style: none; margin: 0; padding: 0; }
+    #task-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    li input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .task-body { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .task-body span { font-size: 16px; word-break: break-word; }
+    li.done .task-body span { text-decoration: line-through; color: var(--muted); }
+    li button.delete {
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 6px;
+    }
+    li button.delete:hover { color: var(--danger); }
+    .empty { text-align: center; color: var(--muted); padding: 24px 0; font-size: 14px; }
+
+    .due { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .due.today { color: var(--accent); }
+    .due.overdue { color: var(--danger); }
+    li.done .due { font-weight: 400; }
+    .completed { font-size: 12px; font-weight: 600; color: var(--success); }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    footer button { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+    footer button:hover { color: var(--accent); }
+
+    /* ---------- CALENDAR: YEAR HEADER ---------- */
+    .year-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .year-bar h2 { margin: 0; font-size: 24px; min-width: 64px; text-align: center; }
+    .year-bar button {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .year-bar .today-btn { width: auto; border-radius: 18px; padding: 0 14px; font-size: 14px; margin-left: auto; }
+    .year-summary { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+
+    /* ---------- CALENDAR: SELECTED DAY PANEL ---------- */
+    .day-panel {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      scroll-margin-top: 16px;
+    }
+    .day-panel h3 { margin: 0 0 8px; font-size: 16px; }
+    .day-panel li { padding: 6px 0; font-size: 15px; display: flex; gap: 8px; }
+    .day-panel li::before { content: "✓"; color: var(--success); font-weight: 700; }
+    .day-panel .none { color: var(--muted); font-size: 14px; }
+    .day-panel .none::before { content: none; }
+
+    /* ---------- CALENDAR: 12-MONTH GRID ---------- */
+    .year-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 20px 24px;
+    }
+    @media (max-width: 500px) {
+      .year-grid { grid-template-columns: 1fr 1fr; gap: 16px 12px; }
+    }
+    .month h4 { margin: 0 0 6px; font-size: 14px; }
+    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .weekday { font-size: 10px; color: var(--muted); text-align: center; padding-bottom: 2px; }
+    .day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0;
+      font-family: inherit;
+    }
+    .day:hover { outline: 1px solid var(--border); }
+    /* Shade days by how many tasks were completed (more = darker) */
+    .day.lvl1 { background: color-mix(in srgb, var(--success) 25%, transparent); }
+    .day.lvl2 { background: color-mix(in srgb, var(--success) 55%, transparent); }
+    .day.lvl3 { background: var(--success); color: white; font-weight: 700; }
+    .day.is-today { outline: 2px solid var(--accent); }
+    .day.selected { outline: 2px solid var(--text); }
+    .legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 20px; }
+    .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <!-- ================= WHAT YOU SEE ON THE PAGE ================= -->
+  <main class="app" id="app">
+    <h1>My To-Do List</h1>
+    <p class="subtitle">Your tasks are saved in this browser.</p>
+
+    <nav class="tabs">
+      <button data-view="tasks" class="active">Tasks</button>
+      <button data-view="calendar">Calendar</button>
+    </nav>
+
+    <!-- ---------- VIEW 1: TASKS ---------- -->
+    <section id="tasks-view">
+      <form id="add-form">
+        <input type="text" id="task-input" placeholder="What needs doing?" autocomplete="off" maxlength="200">
+        <button type="button" class="due-field" id="due-field" aria-haspopup="dialog">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span id="due-field-text">Due date (optional)</span>
+        </button>
+        <button type="submit" class="add">Add</button>
+      </form>
+
+      <div class="filters">
+        <button data-filter="all" class="active">All</button>
+        <button data-filter="active">To do</button>
+        <button data-filter="done">Done</button>
+      </div>
+
+      <ul id="task-list"></ul>
+
+      <footer>
+        <span id="count"></span>
+        <button id="clear-done" title="Hides finished tasks here. They stay on the calendar.">Clear completed</button>
+      </footer>
+    </section>
+
+    <!-- ---------- DATE PICKER POP-UP (opens when you tap the due date field) ---------- -->
+    <dialog class="picker" id="picker" aria-label="Choose a due date"><div class="picker-inner">
+      <div class="picker-head">
+        <button type="button" id="picker-prev" aria-label="Previous month">‹</button>
+        <strong id="picker-month"></strong>
+        <button type="button" id="picker-next" aria-label="Next month">›</button>
+      </div>
+      <div class="picker-grid" id="picker-grid"></div>
+      <div class="quick">
+        <button type="button" data-quick="0">Today</button>
+        <button type="button" data-quick="1">Tomorrow</button>
+        <button type="button" data-quick="7">Next week</button>
+        <button type="button" data-quick="clear" class="clear">No date</button>
+      </div>
+    </div></dialog>
+
+    <!-- ---------- VIEW 2: CALENDAR ---------- -->
+    <section id="calendar-view" hidden>
+      <div class="year-bar">
+        <button id="prev-year" aria-label="Previous year">‹</button>
+        <h2 id="year-label"></h2>
+        <button id="next-year" aria-label="Next year">›</button>
+        <button id="go-today" class="today-btn">Today</button>
+      </div>
+      <p class="year-summary" id="year-summary"></p>
+
+      <div class="day-panel" id="day-panel">
+        <h3 id="day-title"></h3>
+        <ul id="day-list"></ul>
+      </div>
+
+      <div class="year-grid" id="year-grid"></div>
+
+      <div class="legend">
+        Fewer <i style="background:color-mix(in srgb, var(--success) 25%, transparent)"></i>
+        <i style="background:color-mix(in srgb, var(--success) 55%, transparent)"></i>
+        <i style="background:var(--success)"></i> More tasks completed
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= HOW THE APP BEHAVES ================= -->
+  <script>
+    const STORAGE_KEY = "my-todo-list";
+    let tasks = loadTasks();
+    let filter = "all";
+    let calYear = new Date().getFullYear();
+    let selectedDay = todayString();
+
+    // ---------- Saving & loading ----------
+    function loadTasks() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch { return []; }
+    }
+    function saveTasks() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch {}
+    }
+
+    // ---------- Date helpers ----------
+    // A date as "YYYY-MM-DD" in the visitor's own time zone
+    function dateString(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function todayString() { return dateString(new Date()); }
+    function prettyDate(str, opts = { weekday: "short", month: "short", day: "numeric" }) {
+      const [y, m, d] = str.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+    }
+    function describeDue(due) {
+      const today = todayString();
+      if (due < today) return { status: "overdue", label: `Overdue · ${prettyDate(due)}` };
+      if (due === today) return { status: "today", label: "Due today" };
+      return { status: "", label: `Due ${prettyDate(due)}` };
+    }
+
+    // ================= VIEW SWITCHING =================
+    function showView(view) {
+      document.getElementById("tasks-view").hidden = view !== "tasks";
+      document.getElementById("calendar-view").hidden = view !== "calendar";
+      document.getElementById("app").classList.toggle("wide", view === "calendar");
+      document.querySelectorAll(".tabs button").forEach(b =>
+        b.classList.toggle("active", b.dataset.view === view));
+      if (view === "calendar") renderCalendar();
+    }
+    document.querySelectorAll(".tabs button").forEach(btn =>
+      btn.addEventListener("click", () => showView(btn.dataset.view)));
+
+    // ================= TASKS VIEW =================
+    function renderTasks() {
+      const list = document.getElementById("task-list");
+      list.innerHTML = "";
+
+      const visible = tasks
+        .filter(t => !t.cleared)   // "Clear completed" hides tasks here but keeps them for the calendar
+        .filter(t => filter === "all" ? true : filter === "done" ? t.done : !t.done)
+        // Soonest due date first; tasks without a date go to the bottom
+        .sort((a, b) => (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99"));
+
+      if (visible.length === 0) {
+        const msg = filter === "done" ? "Nothing completed yet." : "No tasks here. Add one above!";
+        list.innerHTML = `<li class="empty" style="border:none;display:block">${msg}</li>`;
+      }
+
+      visible.forEach(task => {
+        const li = document.createElement("li");
+        if (task.done) li.classList.add("done");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.done;
+        checkbox.addEventListener("change", () => {
+          task.done = !task.done;
+          // Stamp today's date when checked off; clear it if unchecked
+          task.completed = task.done ? todayString() : null;
+          saveTasks(); renderTasks();
+        });
+
+        const body = document.createElement("div");
+        body.className = "task-body";
+        const text = document.createElement("span");
+        text.textContent = task.text;
+        body.appendChild(text);
+
+        if (task.due) {
+          const due = document.createElement("small");
+          // Finished tasks aren't "overdue" anymore, so just show the plain date
+          const info = task.done ? { status: "", label: `Due ${prettyDate(task.due)}` } : describeDue(task.due);
+          due.className = "due " + info.status;
+          due.textContent = info.label;
+          body.appendChild(due);
+        }
+        if (task.done && task.completed) {
+          const done = document.createElement("small");
+          done.className = "completed";
+          done.textContent = `✓ Completed ${prettyDate(task.completed)}`;
+          body.appendChild(done);
+        }
+
+        const del = document.createElement("button");
+        del.className = "delete";
+        del.textContent = "×";
+        del.setAttribute("aria-label", "Delete task");
+        del.title = "Delete for good (also removes it from the calendar)";
+        del.addEventListener("click", () => {
+          tasks = tasks.filter(t => t.id !== task.id);
+          saveTasks(); renderTasks();
+        });
+
+        li.append(checkbox, body, del);
+        list.appendChild(li);
+      });
+
+      const left = tasks.filter(t => !t.done).length;
+      document.getElementById("count").textContent = `${left} task${left === 1 ? "" : "s"} left`;
+    }
+
+    document.getElementById("add-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const input = document.getElementById("task-input");
+      const text = input.value.trim();
+      if (!text) return;
+      tasks.push({ id: Date.now(), text, done: false, due: chosenDue, completed: null });
+      input.value = "";
+      setDue(null);
+      saveTasks(); renderTasks();
+    });
+
+    // ================= DATE PICKER POP-UP =================
+    let chosenDue = null;                  // the date picked for the next new task
+    let pickerMonth = new Date();          // which month the pop-up is showing
+    const picker = document.getElementById("picker");
+
+    // Remember the chosen date and show it in the field
+    function setDue(value) {
+      chosenDue = value;
+      const field = document.getElementById("due-field");
+      field.classList.toggle("has-date", !!value);
+      document.getElementById("due-field-text").textContent =
+        value ? `Due ${prettyDate(value)}` : "Due date (optional)";
+    }
+
+    function openPicker() {
+      // Start on the chosen date's month, or this month
+      if (chosenDue) {
+        const [y, m] = chosenDue.split("-").map(Number);
+        pickerMonth = new Date(y, m - 1, 1);
+      } else {
+        const now = new Date();
+        pickerMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      renderPicker();
+      picker.showModal();
+    }
+
+    function renderPicker() {
+      const y = pickerMonth.getFullYear(), m = pickerMonth.getMonth();
+      const today = todayString();
+      document.getElementById("picker-month").textContent =
+        pickerMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+      const grid = document.getElementById("picker-grid");
+      grid.innerHTML = "";
+      ["S", "M", "T", "W", "T", "F", "S"].forEach(w =>
+        grid.insertAdjacentHTML("beforeend", `<div class="weekday">${w}</div>`));
+      for (let i = 0; i < new Date(y, m, 1).getDay(); i++) grid.appendChild(document.createElement("div"));
+
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = dateString(new Date(y, m, d));
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "picker-day";
+        btn.textContent = d;
+        if (key < today) btn.classList.add("past");
+        if (key === today) btn.classList.add("is-today");
+        if (key === chosenDue) btn.classList.add("chosen");
+        btn.setAttribute("aria-label", prettyDate(key));
+        btn.addEventListener("click", () => { setDue(key); picker.close(); });
+        grid.appendChild(btn);
+      }
+    }
+
+    document.getElementById("due-field").addEventListener("click", openPicker);
+    document.getElementById("picker-prev").addEventListener("click", () => {
+      pickerMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1); renderPicker();
+    });
+    document.getElementById("picker-next").addEventListener("click", () => {
+      pickerMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1); renderPicker();
+    });
+
+    // Quick-pick buttons: Today, Tomorrow, Next week, No date
+    document.querySelectorAll(".quick button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.quick === "clear") setDue(null);
+        else {
+          const d = new Date();
+          d.setDate(d.getDate() + Number(btn.dataset.quick));
+          setDue(dateString(d));
+        }
+        picker.close();
+      });
+    });
+
+    // Tapping the dark area outside the pop-up closes it
+    picker.addEventListener("click", e => { if (e.target === picker) picker.close(); });
+
+    document.querySelectorAll(".filters button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll(".filters button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderTasks();
+      });
+    });
+
+    // Hide finished tasks from the list, but keep them so they still show on the calendar
+    document.getElementById("clear-done").addEventListener("click", () => {
+      tasks.forEach(t => { if (t.done) t.cleared = true; });
+      saveTasks(); renderTasks();
+    });
+
+    // ================= CALENDAR VIEW =================
+    // Group completed tasks by their completion date: { "2026-09-18": [task, task], ... }
+    function completionsByDay() {
+      const map = {};
+      tasks.filter(t => t.done && t.completed).forEach(t => {
+        (map[t.completed] ||= []).push(t);
+      });
+      return map;
+    }
+
+    function renderCalendar() {
+      const byDay = completionsByDay();
+      const today = todayString();
+      document.getElementById("year-label").textContent = calYear;
+
+      const yearTotal = Object.entries(byDay)
+        .filter(([day]) => day.startsWith(calYear + "-"))
+        .reduce((sum, [, list]) => sum + list.length, 0);
+      document.getElementById("year-summary").textContent =
+        `${yearTotal} task${yearTotal === 1 ? "" : "s"} completed in ${calYear}`;
+
+      // Build the 12 months
+      const grid = document.getElementById("year-grid");
+      grid.innerHTML = "";
+      const weekdays = ["S", "M", "T", "W", "T", "F", "S"];
+
+      for (let m = 0; m < 12; m++) {
+        const month = document.createElement("div");
+        month.className = "month";
+        month.innerHTML = `<h4>${new Date(calYear, m, 1).toLocaleDateString(undefined, { month: "long" })}</h4>`;
+
+        const days = document.createElement("div");
+        days.className = "month-grid";
+        weekdays.forEach(w => days.insertAdjacentHTML("beforeend", `<div class="weekday">${w}</div>`));
+
+        // Blank spaces before the 1st so it lines up with the right weekday
+        const firstWeekday = new Date(calYear, m, 1).getDay();
+        for (let i = 0; i < firstWeekday; i++) days.appendChild(document.createElement("div"));
+
+        const daysInMonth = new Date(calYear, m + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const key = dateString(new Date(calYear, m, d));
+          const count = (byDay[key] || []).length;
+          const cell = document.createElement("button");
+          cell.className = "day";
+          cell.textContent = d;
+          if (count) cell.classList.add(count >= 5 ? "lvl3" : count >= 2 ? "lvl2" : "lvl1");
+          if (key === today) cell.classList.add("is-today");
+          if (key === selectedDay) cell.classList.add("selected");
+          cell.setAttribute("aria-label", `${prettyDate(key)}: ${count} completed`);
+          cell.addEventListener("click", () => {
+            selectedDay = key;
+            renderCalendar();
+            document.getElementById("day-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+          days.appendChild(cell);
+        }
+        month.appendChild(days);
+        grid.appendChild(month);
+      }
+
+      // Selected day's list
+      const dayTasks = byDay[selectedDay] || [];
+      document.getElementById("day-title").textContent =
+        prettyDate(selectedDay, { weekday: "long", month: "long", day: "numeric", year: "numeric" }) +
+        (dayTasks.length ? ` · ${dayTasks.length} completed` : "");
+      const dayList = document.getElementById("day-list");
+      dayList.innerHTML = "";
+      if (dayTasks.length === 0) {
+        dayList.innerHTML = `<li class="none">No tasks completed this day.</li>`;
+      }
+      dayTasks.forEach(t => {
+        const li = document.createElement("li");
+        li.textContent = t.text;
+        dayList.appendChild(li);
+      });
+    }
+
+    document.getElementById("prev-year").addEventListener("click", () => { calYear--; renderCalendar(); });
+    document.getElementById("next-year").addEventListener("click", () => { calYear++; renderCalendar(); });
+    document.getElementById("go-today").addEventListener("click", () => {
+      calYear = new Date().getFullYear();
+      selectedDay = todayString();
+      renderCalendar();
+    });
+
+    renderTasks();
+  </script>
+</body>
+</html>
