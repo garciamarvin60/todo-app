@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My To-Do List</title>
+  <style>
+    /* =========================================================
+       STICKY-NOTE THEME
+       Change these colors to restyle the whole app.
+       ========================================================= */
+    :root {
+      --desk: #efe9dd;          /* page background, like a desk */
+      --desk-dots: #ddd4c3;
+      --note: #fff38a;          /* post-it yellow */
+      --note-dark: #fbe663;     /* slightly deeper yellow for the bottom of the note */
+      --ink: #2d2a26;           /* "pen" color used for text and outlines */
+      --pencil: #8a7f63;        /* softer gray-brown for secondary text */
+      --rule: rgba(45, 42, 38, .18);
+      --blue-pen: #2f5fd0;
+      --red-pen: #d63b2f;
+      --green-pen: #2f8a4a;
+      --pink-note: #ffc9de;
+      --blue-note: #c9ecff;
+      --hl-1: rgba(120, 220, 120, .45);   /* highlighter shades for the calendar */
+      --hl-2: rgba(70, 190, 90, .7);
+      --hl-3: #34a853;
+      /* Hand-drawn wobbly corners */
+      --wobbly: 255px 15px 225px 15px / 15px 225px 15px 255px;
+      --wobbly-2: 15px 255px 15px 225px / 225px 15px 255px 15px;
+      --hand: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;   /* headings */
+      --body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;   /* everything else */
+    }
+    @media (prefers-color-scheme: dark) {
+      /* The note stays yellow (it's a post-it!), only the desk gets darker */
+      :root { --desk: #2b2824; --desk-dots: #3a3631; }
+    }
+
+    /* ---------- PAGE & NOTE ---------- */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--body);
+      background-color: var(--desk);
+      background-image: radial-gradient(var(--desk-dots) 1.2px, transparent 1.2px);
+      background-size: 22px 22px;
+      color: var(--ink);
+      display: flex;
+      justify-content: center;
+      padding: 48px 16px 40px;
+      min-height: 100vh;
+    }
+    .app {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      height: fit-content;
+      padding: 36px 26px 28px;
+      background: linear-gradient(180deg, var(--note) 0%, var(--note) 70%, var(--note-dark) 100%);
+      border-radius: 2px 2px 2px 28px / 2px 2px 2px 10px;
+      box-shadow:
+        0 1px 1px rgba(0,0,0,.08),
+        0 12px 24px -8px rgba(60, 45, 0, .35),
+        inset 0 -14px 20px -16px rgba(120, 90, 0, .35);
+      transform: rotate(-0.6deg);
+    }
+    .app.wide { max-width: 980px; transform: rotate(-0.25deg); }
+    /* Strip of tape holding the note */
+    .app::before {
+      content: "";
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      width: 130px;
+      height: 32px;
+      transform: translateX(-50%) rotate(2deg);
+      background: rgba(255, 255, 255, .55);
+      border-left: 2px dashed rgba(0,0,0,.05);
+      border-right: 2px dashed rgba(0,0,0,.05);
+      box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+    [hidden] { display: none !important; }
+
+    /* ---------- TITLE ---------- */
+    .title-row { display: flex; align-items: center; gap: 10px; }
+    h1 {
+      margin: 0;
+      font-family: var(--hand);
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .doodle { flex-shrink: 0; }
+    .squiggle { display: block; margin: 2px 0 6px; }
+    .subtitle { margin: 0 0 20px; color: var(--pencil); font-size: 14px; }
+
+    /* ---------- VIEW SWITCHER (Tasks / Calendar) ---------- */
+    .tabs { display: flex; gap: 10px; margin-bottom: 22px; max-width: 428px; }
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      font-family: var(--hand);
+      font-size: 16px;
+      font-weight: 700;
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly);
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform .12s;
+    }
+    .tabs button:hover { transform: rotate(-1deg) scale(1.02); }
+    .tabs button.active { background: var(--ink); color: var(--note); }
+
+    /* ---------- ADD-TASK FORM ---------- */
+    form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    form input[type="text"] { flex: 1 1 100%; }
+    input[type="text"] {
+      padding: 12px 14px;
+      font-size: 16px;
+      font-family: var(--body);
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly-2);
+      background: rgba(255, 255, 255, .55);
+      color: var(--ink);
+    }
+    input[type="text"]::placeholder { color: var(--pencil); }
+    input:focus, button:focus-visible { outline: 3px solid var(--blue-pen); outline-offset: 2px; }
+    .due-field {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      font-size: 15px;
+      font-family: var(--body);
+      text-align: left;
+      border: 2px dashed var(--ink);
+      border-radius: var(--wobbly);
+      background: transparent;
+      color: var(--pencil);
+      cursor: pointer;
+    }
+    .due-field.has-date { color: var(--ink); font-weight: 700; border-style: solid; background: rgba(255,255,255,.4); }
+    .due-field svg { flex-shrink: 0; }
+    button.add {
+      padding: 0 22px;
+      font-family: var(--hand);
+      font-size: 16px;
+      font-weight: 700;
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly-2);
+      background: var(--ink);
+      color: var(--note);
+      cursor: pointer;
+      box-shadow: 3px 3px 0 rgba(45,42,38,.25);
+      transition: transform .1s, box-shadow .1s;
+    }
+    button.add:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(45,42,38,.25); }
+
+    /* ---------- FILTER BUTTONS ---------- */
+    .filters { display: flex; gap: 8px; margin-bottom: 8px; }
+    .filters button {
+      flex: 1;
+      padding: 6px;
+      font-size: 14px;
+      font-family: var(--body);
+      font-weight: 700;
+      border: 1.5px solid transparent;
+      border-radius: var(--wobbly);
+      background: transparent;
+      color: var(--pencil);
+      cursor: pointer;
+    }
+    .filters button.active { color: var(--ink); border-color: var(--ink); background: rgba(255,255,255,.4); }
+
+    /* ---------- TASK LIST (looks like lines on the note) ---------- */
+    ul { list-style: none; margin: 0; padding: 0; }
+    #task-list li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 2px;
+      border-bottom: 1.5px dashed var(--rule);
+    }
+    /* Hand-drawn checkbox */
+    li input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      margin: 0;
+      flex-shrink: 0;
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly-2);
+      background: rgba(255,255,255,.5);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    li input[type="checkbox"]:checked::after {
+      content: "✓";
+      font-family: var(--hand);
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--green-pen);
+      transform: rotate(-6deg);
+    }
+    .task-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .task-body span { font-size: 16px; word-break: break-word; }
+    li.done .task-body span {
+      text-decoration: line-through;
+      text-decoration-color: var(--red-pen);
+      text-decoration-thickness: 2px;
+      color: var(--pencil);
+    }
+    li button.delete {
+      border: none;
+      background: none;
+      color: var(--pencil);
+      font-family: var(--hand);
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 6px;
+    }
+    li button.delete:hover { color: var(--red-pen); transform: rotate(8deg); }
+    .empty {
+      text-align: center;
+      color: var(--pencil);
+      padding: 28px 0 !important;
+      font-family: var(--hand);
+      font-size: 15px;
+    }
+
+    .due { font-family: var(--hand); font-size: 12px; font-weight: 700; line-height: 1.3; color: var(--pencil); }
+    .due.today { color: var(--blue-pen); }
+    .due.overdue { color: var(--red-pen); }
+    li.done .due { font-weight: 500; }
+    .completed { font-family: var(--hand); font-size: 12px; font-weight: 700; line-height: 1.3; color: var(--green-pen); }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--pencil);
+    }
+    footer button {
+      border: none;
+      background: none;
+      color: var(--pencil);
+      cursor: pointer;
+      font-size: 14px;
+      font-family: var(--body);
+      text-decoration: underline wavy;
+      text-underline-offset: 4px;
+    }
+    footer button:hover { color: var(--ink); }
+
+    /* ---------- DATE PICKER POP-UP (a blue sticky note) ---------- */
+    dialog.picker {
+      width: min(340px, calc(100vw - 32px));
+      padding: 0;
+      border: none;
+      border-radius: 2px 2px 2px 24px / 2px 2px 2px 8px;
+      background: var(--blue-note);
+      color: var(--ink);
+      box-shadow: 0 18px 40px -10px rgba(0,0,0,.45);
+      overflow: visible;
+    }
+    dialog.picker[open] { animation: stick .18s ease-out; }
+    @keyframes stick { from { transform: rotate(-4deg) scale(.92); opacity: 0; } to { transform: rotate(0.8deg); opacity: 1; } }
+    dialog.picker[open] { transform: rotate(0.8deg); }
+    dialog.picker::backdrop { background: rgba(40, 32, 10, .35); }
+    .picker-inner { padding: 20px; }
+    .picker-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .picker-head strong { font-family: var(--hand); font-size: 17px; }
+    .picker-head button {
+      width: 36px; height: 36px;
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly);
+      background: rgba(255,255,255,.4);
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+    .picker-grid .weekday { font-size: 12px; font-weight: 700; padding-bottom: 4px; color: var(--pencil); text-align: center; }
+    .picker-day {
+      aspect-ratio: 1;
+      border: 2px solid transparent;
+      border-radius: var(--wobbly);
+      background: transparent;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--body);
+      cursor: pointer;
+    }
+    .picker-day:hover { border-color: var(--rule); }
+    .picker-day.past { color: var(--pencil); font-weight: 400; }
+    .picker-day.is-today { border-color: var(--blue-pen); }
+    .picker-day.chosen { background: var(--ink); color: var(--note); border-color: var(--ink); font-weight: 800; }
+    .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+    .quick button {
+      padding: 8px 6px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--body);
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly-2);
+      background: rgba(255,255,255,.45);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .quick button:hover { background: rgba(255,255,255,.8); }
+    .quick .clear { color: var(--red-pen); border-style: dashed; }
+
+    /* ---------- CALENDAR: TOP BAR (Week / Month / Year + Today) ---------- */
+    .cal-top { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .modes { display: flex; gap: 6px; }
+    .modes button {
+      padding: 7px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--body);
+      border: 1.5px solid transparent;
+      border-radius: var(--wobbly);
+      background: transparent;
+      color: var(--pencil);
+      cursor: pointer;
+    }
+    .modes button.active { color: var(--ink); border-color: var(--ink); background: rgba(255,255,255,.45); }
+    .today-btn {
+      margin-left: auto;
+      padding: 7px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--body);
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly);
+      background: rgba(255,255,255,.4);
+      color: var(--ink);
+      cursor: pointer;
+    }
+
+    /* ---------- CALENDAR: PERIOD NAVIGATION ( ‹ September 2026 › ) ---------- */
+    .period-bar { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 2px; }
+    .period-bar h2 { margin: 0; flex: 1; font-family: var(--hand); font-size: 24px; text-align: center; }
+    @media (min-width: 700px) { .period-bar h2 { flex: 0 1 auto; min-width: 320px; } }
+    @media (max-width: 500px) { .period-bar h2 { font-size: 20px; } }
+    .period-bar button {
+      width: 38px; height: 38px;
+      flex-shrink: 0;
+      border: 2px solid var(--ink);
+      border-radius: var(--wobbly);
+      background: rgba(255,255,255,.4);
+      color: var(--ink);
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .period-summary { color: var(--pencil); font-size: 14px; margin: 0 0 18px; text-align: center; }
+
+    /* The selected-day note sits above the grid in Year view and below it in Month view */
+    .cal-body { display: flex; flex-direction: column; }
+    .mode-year .day-panel { order: -1; }
+    .mode-month .day-panel { margin-top: 26px; margin-bottom: 8px; }
+    .mode-week .day-panel, .mode-week .legend, .mode-month .legend { display: none; }
+
+    /* ---------- CALENDAR: SELECTED DAY (a pink sticky note) ---------- */
+    .day-panel {
+      position: relative;
+      background: var(--pink-note);
+      padding: 18px 18px 14px;
+      margin: 8px 4px 26px;
+      border-radius: 2px 2px 2px 18px / 2px 2px 2px 6px;
+      box-shadow: 0 8px 16px -8px rgba(0,0,0,.35);
+      transform: rotate(0.8deg);
+      scroll-margin-top: 24px;
+    }
+    .day-panel::before {
+      content: "";
+      position: absolute;
+      top: -10px; left: 24px;
+      width: 70px; height: 20px;
+      transform: rotate(-4deg);
+      background: rgba(255,255,255,.6);
+      box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    .day-panel h3 { margin: 0 0 6px; font-family: var(--hand); font-size: 17px; line-height: 1.3; }
+    .day-panel li { padding: 4px 0; font-size: 15px; display: flex; gap: 8px; align-items: baseline; }
+    .day-panel li::before { content: "✓"; font-family: var(--hand); font-size: 15px; color: var(--green-pen); font-weight: 700; }
+    .day-panel .none { color: var(--pencil); font-size: 14px; }
+    .day-panel .none::before { content: none; }
+
+    /* ---------- CALENDAR: 12-MONTH GRID ---------- */
+    .year-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 22px 26px;
+    }
+    @media (max-width: 500px) {
+      .year-grid { grid-template-columns: 1fr 1fr; gap: 18px 12px; }
+      .app { padding: 32px 18px 24px; }
+    }
+    .month h4 { margin: 0 0 6px; font-family: var(--hand); font-size: 15px; }
+    .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+    .weekday { font-size: 10px; font-weight: 700; color: var(--pencil); text-align: center; padding-bottom: 2px; }
+    .day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1.5px solid transparent;
+      border-radius: var(--wobbly);
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      padding: 0;
+      font-family: var(--body);
+    }
+    .day:hover { border-color: var(--rule); }
+    /* Days are "highlighted" like a highlighter pen; more tasks = stronger */
+    .day.lvl1 { background: var(--hl-1); }
+    .day.lvl2 { background: var(--hl-2); }
+    .day.lvl3 { background: var(--hl-3); color: white; font-weight: 800; }
+    .day.is-today { border-color: var(--blue-pen); border-width: 2px; }
+    .day.selected { border-color: var(--ink); border-width: 2px; }
+    .legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--pencil); margin-top: 22px; }
+    .legend i { width: 14px; height: 14px; border-radius: var(--wobbly); display: inline-block; }
+
+    /* ---------- CALENDAR: MONTH VIEW ---------- */
+    .mv-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .mv-weekday { font-size: 12px; font-weight: 700; color: var(--pencil); text-align: center; padding-bottom: 2px; }
+    .mv-day {
+      min-height: 104px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
+      padding: 6px;
+      text-align: left;
+      font-family: var(--body);
+      color: var(--ink);
+      background: rgba(255,255,255,.28);
+      border: 1.5px dashed var(--rule);
+      border-radius: 6px;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .mv-day:hover { background: rgba(255,255,255,.5); }
+    .mv-num { font-size: 13px; font-weight: 800; }
+    .mv-day.is-today { border: 2px solid var(--blue-pen); }
+    .mv-day.is-today .mv-num { color: var(--blue-pen); }
+    .mv-day.selected { border: 2px solid var(--ink); background: rgba(255,255,255,.6); }
+    .chip {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--hl-1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .more { font-size: 11px; font-weight: 700; color: var(--pencil); padding-left: 2px; }
+    .mv-count { display: none; }
+    /* On phones there isn't room for task names, so show a count instead */
+    @media (max-width: 600px) {
+      .mv-grid { gap: 4px; }
+      .mv-day { min-height: 0; aspect-ratio: 1 / 1.1; align-items: center; justify-content: center; padding: 2px; gap: 2px; }
+      .mv-num { font-size: 14px; }
+      .chip, .more { display: none; }
+      .mv-count {
+        display: grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 4px;
+        border-radius: 9px;
+        background: var(--hl-3);
+        color: white;
+        font-size: 11px;
+        font-weight: 800;
+      }
+    }
+
+    /* ---------- CALENDAR: WEEK VIEW ---------- */
+    .wv-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+    .wv-day {
+      min-height: 200px;
+      padding: 10px;
+      background: rgba(255,255,255,.28);
+      border: 1.5px dashed var(--rule);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .wv-day.is-today { border: 2px solid var(--blue-pen); }
+    .wv-head { display: flex; flex-direction: column; margin-bottom: 8px; }
+    .wv-dow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--pencil); }
+    .wv-date { font-size: 24px; font-weight: 800; line-height: 1.1; }
+    .wv-day.is-today .wv-date, .wv-day.is-today .wv-dow { color: var(--blue-pen); }
+    .wv-list li { font-size: 13px; line-height: 1.35; padding: 3px 0; display: flex; gap: 5px; word-break: break-word; }
+    .wv-list li::before { content: "✓"; color: var(--green-pen); font-weight: 900; }
+    .wv-list .none { color: var(--pencil); }
+    .wv-list .none::before { content: none; }
+    /* On narrow screens, stack the days as a list */
+    @media (max-width: 760px) {
+      .wv-grid { grid-template-columns: 1fr; gap: 6px; }
+      .wv-day { min-height: 0; display: flex; gap: 14px; align-items: flex-start; padding: 10px 12px; }
+      .wv-head { width: 44px; flex-shrink: 0; margin: 0; align-items: center; }
+      .wv-list { flex: 1; padding-top: 2px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ================= WHAT YOU SEE ON THE PAGE ================= -->
+  <main class="app" id="app">
+    <div class="title-row">
+      <h1>My To-Do List</h1>
+      <!-- little pencil doodle -->
+      <svg class="doodle" width="38" height="38" viewBox="0 0 48 48" fill="none" stroke="#2d2a26" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10 38l4-11L32 9a4 4 0 0 1 6 0l1 1a4 4 0 0 1 0 6L21 34z" fill="#ffb3c7"/>
+        <path d="M29 12l7 7" /><path d="M14 27l7 7" /><path d="M10 38l6-2" fill="#2d2a26"/>
+      </svg>
+    </div>
+    <!-- hand-drawn underline -->
+    <svg class="squiggle" width="210" height="12" viewBox="0 0 210 12" fill="none" aria-hidden="true">
+      <path d="M2 8c20-6 34 4 52-1s30-5 48 0 32 4 50-1 30-4 56 1" stroke="#2d2a26" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <p class="subtitle">Your tasks are saved in this browser.</p>
+
+    <nav class="tabs">
+      <button data-view="tasks" class="active">Tasks</button>
+      <button data-view="calendar">Calendar</button>
+    </nav>
+
+    <!-- ---------- VIEW 1: TASKS ---------- -->
+    <section id="tasks-view">
+      <form id="add-form">
+        <input type="text" id="task-input" placeholder="What needs doing?" autocomplete="off" maxlength="200">
+        <button type="button" class="due-field" id="due-field" aria-haspopup="dialog">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          <span id="due-field-text">Due date (optional)</span>
+        </button>
+        <button type="submit" class="add">Add</button>
+      </form>
+
+      <div class="filters">
+        <button data-filter="all" class="active">All</button>
+        <button data-filter="active">To do</button>
+        <button data-filter="done">Done</button>
+      </div>
+
+      <ul id="task-list"></ul>
+
+      <footer>
+        <span id="count"></span>
+        <button id="clear-done" title="Hides finished tasks here. They stay on the calendar.">Clear completed</button>
+      </footer>
+    </section>
+
+    <!-- ---------- DATE PICKER POP-UP (opens when you tap the due date field) ---------- -->
+    <dialog class="picker" id="picker" aria-label="Choose a due date"><div class="picker-inner">
+      <div class="picker-head">
+        <button type="button" id="picker-prev" aria-label="Previous month">‹</button>
+        <strong id="picker-month"></strong>
+        <button type="button" id="picker-next" aria-label="Next month">›</button>
+      </div>
+      <div class="picker-grid" id="picker-grid"></div>
+      <div class="quick">
+        <button type="button" data-quick="0">Today</button>
+        <button type="button" data-quick="1">Tomorrow</button>
+        <button type="button" data-quick="7">Next week</button>
+        <button type="button" data-quick="clear" class="clear">No date</button>
+      </div>
+    </div></dialog>
+
+    <!-- ---------- VIEW 2: CALENDAR ---------- -->
+    <section id="calendar-view" class="mode-month" hidden>
+      <div class="cal-top">
+        <div class="modes" role="group" aria-label="Calendar view">
+          <button data-mode="week">Week</button>
+          <button data-mode="month" class="active">Month</button>
+          <button data-mode="year">Year</button>
+        </div>
+        <button id="go-today" class="today-btn">Today</button>
+      </div>
+
+      <div class="period-bar">
+        <button id="prev-period" aria-label="Previous">‹</button>
+        <h2 id="period-label"></h2>
+        <button id="next-period" aria-label="Next">›</button>
+      </div>
+      <p class="period-summary" id="period-summary"></p>
+
+      <div class="cal-body">
+        <div id="cal-grid"></div>
+
+        <div class="day-panel" id="day-panel">
+          <h3 id="day-title"></h3>
+          <ul id="day-list"></ul>
+        </div>
+      </div>
+
+      <div class="legend">
+        Fewer <i style="background:var(--hl-1)"></i>
+        <i style="background:var(--hl-2)"></i>
+        <i style="background:var(--hl-3)"></i> More tasks completed
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= HOW THE APP BEHAVES ================= -->
+  <script>
+    const STORAGE_KEY = "my-todo-list";
+    let tasks = loadTasks();
+    let filter = "all";
+    let calMode = loadCalMode();       // "week", "month" or "year"
+    let calDate = new Date();          // any date inside the period being shown
+    let selectedDay = todayString();
+
+    // ---------- Saving & loading ----------
+    function loadTasks() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+      catch { return []; }
+    }
+    function saveTasks() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch {}
+    }
+
+    // ---------- Date helpers ----------
+    // A date as "YYYY-MM-DD" in the visitor's own time zone
+    function dateString(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+    function todayString() { return dateString(new Date()); }
+    function prettyDate(str, opts = { weekday: "short", month: "short", day: "numeric" }) {
+      const [y, m, d] = str.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+    }
+    function describeDue(due) {
+      const today = todayString();
+      if (due < today) return { status: "overdue", label: `Overdue · ${prettyDate(due)}` };
+      if (due === today) return { status: "today", label: "Due today" };
+      return { status: "", label: `Due ${prettyDate(due)}` };
+    }
+
+    // ================= VIEW SWITCHING =================
+    function showView(view) {
+      document.getElementById("tasks-view").hidden = view !== "tasks";
+      document.getElementById("calendar-view").hidden = view !== "calendar";
+      document.getElementById("app").classList.toggle("wide", view === "calendar");
+      document.querySelectorAll(".tabs button").forEach(b =>
+        b.classList.toggle("active", b.dataset.view === view));
+      if (view === "calendar") renderCalendar();
+    }
+    document.querySelectorAll(".tabs button").forEach(btn =>
+      btn.addEventListener("click", () => showView(btn.dataset.view)));
+
+    // ================= TASKS VIEW =================
+    function renderTasks() {
+      const list = document.getElementById("task-list");
+      list.innerHTML = "";
+
+      const visible = tasks
+        .filter(t => !t.cleared)   // "Clear completed" hides tasks here but keeps them for the calendar
+        .filter(t => filter === "all" ? true : filter === "done" ? t.done : !t.done)
+        // Soonest due date first; tasks without a date go to the bottom
+        .sort((a, b) => (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99"));
+
+      if (visible.length === 0) {
+        const msg = filter === "done" ? "Nothing completed yet." : "No tasks here. Add one above!";
+        list.innerHTML = `<li class="empty" style="border:none;display:block;text-align:center">${msg}</li>`;
+      }
+
+      visible.forEach(task => {
+        const li = document.createElement("li");
+        if (task.done) li.classList.add("done");
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.done;
+        checkbox.addEventListener("change", () => {
+          task.done = !task.done;
+          // Stamp today's date when checked off; clear it if unchecked
+          task.completed = task.done ? todayString() : null;
+          saveTasks(); renderTasks();
+        });
+
+        const body = document.createElement("div");
+        body.className = "task-body";
+        const text = document.createElement("span");
+        text.textContent = task.text;
+        body.appendChild(text);
+
+        if (task.due) {
+          const due = document.createElement("small");
+          // Finished tasks aren't "overdue" anymore, so just show the plain date
+          const info = task.done ? { status: "", label: `Due ${prettyDate(task.due)}` } : describeDue(task.due);
+          due.className = "due " + info.status;
+          due.textContent = info.label;
+          body.appendChild(due);
+        }
+        if (task.done && task.completed) {
+          const done = document.createElement("small");
+          done.className = "completed";
+          done.textContent = `✓ Completed ${prettyDate(task.completed)}`;
+          body.appendChild(done);
+        }
+
+        const del = document.createElement("button");
+        del.className = "delete";
+        del.textContent = "×";
+        del.setAttribute("aria-label", "Delete task");
+        del.title = "Delete for good (also removes it from the calendar)";
+        del.addEventListener("click", () => {
+          tasks = tasks.filter(t => t.id !== task.id);
+          saveTasks(); renderTasks();
+        });
+
+        li.append(checkbox, body, del);
+        list.appendChild(li);
+      });
+
+      const left = tasks.filter(t => !t.done).length;
+      document.getElementById("count").textContent = `${left} task${left === 1 ? "" : "s"} left`;
+    }
+
+    document.getElementById("add-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const input = document.getElementById("task-input");
+      const text = input.value.trim();
+      if (!text) return;
+      tasks.push({ id: Date.now(), text, done: false, due: chosenDue, completed: null });
+      input.value = "";
+      setDue(null);
+      saveTasks(); renderTasks();
+    });
+
+    // ================= DATE PICKER POP-UP =================
+    let chosenDue = null;                  // the date picked for the next new task
+    let pickerMonth = new Date();          // which month the pop-up is showing
+    const picker = document.getElementById("picker");
+
+    // Remember the chosen date and show it in the field
+    function setDue(value) {
+      chosenDue = value;
+      const field = document.getElementById("due-field");
+      field.classList.toggle("has-date", !!value);
+      document.getElementById("due-field-text").textContent =
+        value ? `Due ${prettyDate(value)}` : "Due date (optional)";
+    }
+
+    function openPicker() {
+      // Start on the chosen date's month, or this month
+      if (chosenDue) {
+        const [y, m] = chosenDue.split("-").map(Number);
+        pickerMonth = new Date(y, m - 1, 1);
+      } else {
+        const now = new Date();
+        pickerMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      renderPicker();
+      picker.showModal();
+    }
+
+    function renderPicker() {
+      const y = pickerMonth.getFullYear(), m = pickerMonth.getMonth();
+      const today = todayString();
+      document.getElementById("picker-month").textContent =
+        pickerMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+      const grid = document.getElementById("picker-grid");
+      grid.innerHTML = "";
+      ["S", "M", "T", "W", "T", "F", "S"].forEach(w =>
+        grid.insertAdjacentHTML("beforeend", `<div class="weekday">${w}</div>`));
+      for (let i = 0; i < new Date(y, m, 1).getDay(); i++) grid.appendChild(document.createElement("div"));
+
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = dateString(new Date(y, m, d));
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "picker-day";
+        btn.textContent = d;
+        if (key < today) btn.classList.add("past");
+        if (key === today) btn.classList.add("is-today");
+        if (key === chosenDue) btn.classList.add("chosen");
+        btn.setAttribute("aria-label", prettyDate(key));
+        btn.addEventListener("click", () => { setDue(key); picker.close(); });
+        grid.appendChild(btn);
+      }
+    }
+
+    document.getElementById("due-field").addEventListener("click", openPicker);
+    document.getElementById("picker-prev").addEventListener("click", () => {
+      pickerMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() - 1, 1); renderPicker();
+    });
+    document.getElementById("picker-next").addEventListener("click", () => {
+      pickerMonth = new Date(pickerMonth.getFullYear(), pickerMonth.getMonth() + 1, 1); renderPicker();
+    });
+
+    // Quick-pick buttons: Today, Tomorrow, Next week, No date
+    document.querySelectorAll(".quick button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.quick === "clear") setDue(null);
+        else {
+          const d = new Date();
+          d.setDate(d.getDate() + Number(btn.dataset.quick));
+          setDue(dateString(d));
+        }
+        picker.close();
+      });
+    });
+
+    // Tapping the dark area outside the pop-up closes it
+    picker.addEventListener("click", e => { if (e.target === picker) picker.close(); });
+
+    document.querySelectorAll(".filters button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        filter = btn.dataset.filter;
+        document.querySelectorAll(".filters button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderTasks();
+      });
+    });
+
+    // Hide finished tasks from the list, but keep them so they still show on the calendar
+    document.getElementById("clear-done").addEventListener("click", () => {
+      tasks.forEach(t => { if (t.done) t.cleared = true; });
+      saveTasks(); renderTasks();
+    });
+
+    // ================= CALENDAR VIEW =================
+    // Group completed tasks by their completion date: { "2026-09-18": [task, task], ... }
+    function completionsByDay() {
+      const map = {};
+      tasks.filter(t => t.done && t.completed).forEach(t => {
+        (map[t.completed] ||= []).push(t);
+      });
+      return map;
+    }
+
+    // Remember which calendar view (week/month/year) was picked last time
+    function loadCalMode() {
+      try { return localStorage.getItem("my-todo-cal-mode") || "month"; } catch { return "month"; }
+    }
+    function saveCalMode() {
+      try { localStorage.setItem("my-todo-cal-mode", calMode); } catch {}
+    }
+
+    function addDays(date, n) {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      d.setDate(d.getDate() + n);
+      return d;
+    }
+    function startOfWeek(date) { return addDays(date, -date.getDay()); }   // weeks start on Sunday
+    function fromKey(key) { const [y, m, d] = key.split("-").map(Number); return new Date(y, m - 1, d); }
+
+    // Which dates the current view covers, plus its title
+    function currentPeriod() {
+      const y = calDate.getFullYear(), m = calDate.getMonth();
+      if (calMode === "year") {
+        return { start: new Date(y, 0, 1), end: new Date(y, 11, 31), label: String(y), phrase: `in ${y}` };
+      }
+      if (calMode === "month") {
+        const first = new Date(y, m, 1);
+        return {
+          start: first,
+          end: new Date(y, m + 1, 0),
+          label: first.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+          phrase: `in ${first.toLocaleDateString(undefined, { month: "long" })}`
+        };
+      }
+      const start = startOfWeek(calDate), end = addDays(start, 6);
+      const short = { month: "short", day: "numeric" };
+      const label = start.getFullYear() === end.getFullYear()
+        ? `${start.toLocaleDateString(undefined, short)} – ${end.toLocaleDateString(undefined, short)}, ${end.getFullYear()}`
+        : `${start.toLocaleDateString(undefined, { ...short, year: "numeric" })} – ${end.toLocaleDateString(undefined, { ...short, year: "numeric" })}`;
+      return { start, end, label, phrase: "this week" };
+    }
+
+    function renderCalendar() {
+      const byDay = completionsByDay();
+      const today = todayString();
+      const period = currentPeriod();
+      const startKey = dateString(period.start), endKey = dateString(period.end);
+
+      // Highlight the chosen view button and tag the section so CSS can adjust the layout
+      const section = document.getElementById("calendar-view");
+      section.className = "mode-" + calMode;
+      document.querySelectorAll(".modes button").forEach(b =>
+        b.classList.toggle("active", b.dataset.mode === calMode));
+
+      document.getElementById("period-label").textContent = period.label;
+      const total = Object.entries(byDay)
+        .filter(([day]) => day >= startKey && day <= endKey)
+        .reduce((sum, [, list]) => sum + list.length, 0);
+      const isThisWeek = calMode === "week" && startKey === dateString(startOfWeek(new Date()));
+      const phrase = calMode === "week" && !isThisWeek ? "that week" : period.phrase;
+      document.getElementById("period-summary").textContent =
+        `${total} task${total === 1 ? "" : "s"} completed ${phrase}`;
+
+      const grid = document.getElementById("cal-grid");
+      grid.innerHTML = "";
+      if (calMode === "year") renderYear(grid, byDay, today);
+      else if (calMode === "month") renderMonth(grid, byDay, today);
+      else renderWeek(grid, byDay, today, period.start);
+
+      renderDayPanel(byDay);
+    }
+
+    // Clicking a day in Month or Year view shows its tasks in the pink note
+    function selectDay(key) {
+      selectedDay = key;
+      renderCalendar();
+      document.getElementById("day-panel").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    // ---------- YEAR: 12 small months, shaded like a highlighter ----------
+    function renderYear(grid, byDay, today) {
+      grid.className = "year-grid";
+      const year = calDate.getFullYear();
+      for (let m = 0; m < 12; m++) {
+        const month = document.createElement("div");
+        month.className = "month";
+        month.innerHTML = `<h4>${new Date(year, m, 1).toLocaleDateString(undefined, { month: "long" })}</h4>`;
+        const days = document.createElement("div");
+        days.className = "month-grid";
+        ["S", "M", "T", "W", "T", "F", "S"].forEach(w =>
+          days.insertAdjacentHTML("beforeend", `<div class="weekday">${w}</div>`));
+        for (let i = 0; i < new Date(year, m, 1).getDay(); i++) days.appendChild(document.createElement("div"));
+
+        const daysInMonth = new Date(year, m + 1, 0).getDate();
+        for (let d = 1; d <= daysInMonth; d++) {
+          const key = dateString(new Date(year, m, d));
+          const count = (byDay[key] || []).length;
+          const cell = document.createElement("button");
+          cell.className = "day";
+          cell.textContent = d;
+          if (count) cell.classList.add(count >= 5 ? "lvl3" : count >= 2 ? "lvl2" : "lvl1");
+          if (key === today) cell.classList.add("is-today");
+          if (key === selectedDay) cell.classList.add("selected");
+          cell.setAttribute("aria-label", `${prettyDate(key)}: ${count} completed`);
+          cell.addEventListener("click", () => selectDay(key));
+          days.appendChild(cell);
+        }
+        month.appendChild(days);
+        grid.appendChild(month);
+      }
+    }
+
+    // ---------- MONTH: one big month with task names in each day ----------
+    function renderMonth(grid, byDay, today) {
+      grid.className = "mv-grid";
+      const y = calDate.getFullYear(), m = calDate.getMonth();
+      ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach(w =>
+        grid.insertAdjacentHTML("beforeend", `<div class="mv-weekday">${w}</div>`));
+      for (let i = 0; i < new Date(y, m, 1).getDay(); i++) grid.appendChild(document.createElement("div"));
+
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = dateString(new Date(y, m, d));
+        const done = byDay[key] || [];
+        const cell = document.createElement("button");
+        cell.className = "mv-day";
+        if (key === today) cell.classList.add("is-today");
+        if (key === selectedDay) cell.classList.add("selected");
+        cell.setAttribute("aria-label", `${prettyDate(key)}: ${done.length} completed`);
+
+        const num = document.createElement("span");
+        num.className = "mv-num";
+        num.textContent = d;
+        cell.appendChild(num);
+
+        // Up to 3 task names, then "+2 more"
+        done.slice(0, 3).forEach(t => {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = t.text;
+          cell.appendChild(chip);
+        });
+        if (done.length > 3) cell.insertAdjacentHTML("beforeend", `<span class="more">+${done.length - 3} more</span>`);
+        // Phones show just the number of tasks
+        if (done.length) cell.insertAdjacentHTML("beforeend", `<span class="mv-count">${done.length}</span>`);
+
+        cell.addEventListener("click", () => selectDay(key));
+        grid.appendChild(cell);
+      }
+    }
+
+    // ---------- WEEK: seven columns listing every task completed ----------
+    function renderWeek(grid, byDay, today, start) {
+      grid.className = "wv-grid";
+      for (let i = 0; i < 7; i++) {
+        const date = addDays(start, i);
+        const key = dateString(date);
+        const done = byDay[key] || [];
+        const col = document.createElement("div");
+        col.className = "wv-day" + (key === today ? " is-today" : "");
+        col.innerHTML = `
+          <div class="wv-head">
+            <span class="wv-dow">${date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+            <span class="wv-date">${date.getDate()}</span>
+          </div>`;
+        const list = document.createElement("ul");
+        list.className = "wv-list";
+        if (done.length === 0) list.innerHTML = `<li class="none">—</li>`;
+        done.forEach(t => {
+          const li = document.createElement("li");
+          li.textContent = t.text;
+          list.appendChild(li);
+        });
+        col.appendChild(list);
+        grid.appendChild(col);
+      }
+    }
+
+    // ---------- The pink note listing the selected day's tasks ----------
+    function renderDayPanel(byDay) {
+      const dayTasks = byDay[selectedDay] || [];
+      document.getElementById("day-title").textContent =
+        prettyDate(selectedDay, { weekday: "long", month: "long", day: "numeric", year: "numeric" }) +
+        (dayTasks.length ? ` · ${dayTasks.length} completed` : "");
+      const dayList = document.getElementById("day-list");
+      dayList.innerHTML = "";
+      if (dayTasks.length === 0) dayList.innerHTML = `<li class="none">No tasks completed this day.</li>`;
+      dayTasks.forEach(t => {
+        const li = document.createElement("li");
+        li.textContent = t.text;
+        dayList.appendChild(li);
+      });
+    }
+
+    // ---------- Buttons ----------
+    // Week / Month / Year
+    document.querySelectorAll(".modes button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        calMode = btn.dataset.mode;
+        calDate = fromKey(selectedDay);   // keep the selected day in view
+        saveCalMode();
+        renderCalendar();
+      });
+    });
+
+    // ‹ and › move back or forward one week, month or year
+    function movePeriod(step) {
+      const y = calDate.getFullYear(), m = calDate.getMonth();
+      if (calMode === "year") calDate = new Date(y + step, m, 1);
+      else if (calMode === "month") calDate = new Date(y, m + step, 1);
+      else calDate = addDays(calDate, 7 * step);
+      renderCalendar();
+    }
+    document.getElementById("prev-period").addEventListener("click", () => movePeriod(-1));
+    document.getElementById("next-period").addEventListener("click", () => movePeriod(1));
+
+    document.getElementById("go-today").addEventListener("click", () => {
+      calDate = new Date();
+      selectedDay = todayString();
+      renderCalendar();
+    });
+
+    renderTasks();
+  </script>
+</body>
+</html>
